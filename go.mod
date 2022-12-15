@@ -1,4 +1,4 @@
-module gocx
+module github.com/UnguidedFreedom/gocx
 
 go 1.19
 
