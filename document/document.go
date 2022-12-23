@@ -117,11 +117,15 @@ func (document *Document) Body() *Body {
 	}
 }
 
-func (document *Document) AddImage(filename string) (string, error) {
+func (document *Document) AddImageFromFile(filename string) (string, error) {
 	imgData, err := os.ReadFile(filename)
 	if err != nil {
 		return "", err
 	}
+	return document.AddImage(imgData)
+}
+
+func (document *Document) AddImage(raw []byte) (string, error) {
 	index := 1
 	for name := range document.rawFiles {
 		if strings.HasPrefix(name, "word/media/image") {
@@ -130,7 +134,7 @@ func (document *Document) AddImage(filename string) (string, error) {
 	}
 	imgName := fmt.Sprintf("image%v.png", index)
 	imgPath := fmt.Sprintf("word/media/%v", imgName)
-	document.rawFiles[imgPath] = imgData
+	document.rawFiles[imgPath] = raw
 
 	// ensure PNG is in the content types
 	contentTypes := document.xmlFiles["[Content_Types].xml"]
