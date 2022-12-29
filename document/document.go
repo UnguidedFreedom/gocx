@@ -59,38 +59,56 @@ func OpenDocument(filename string) (*Document, error) {
 }
 
 func (document *Document) SaveToFile(filename string) error {
+	var err error
 	output, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
-	defer output.Close()
+	defer func() {
+		err = output.Close()
+		fmt.Println("Closed file")
+	}()
 
 	w := zip.NewWriter(output)
-	defer w.Close()
+	defer func() {
+		err = w.Close()
+		fmt.Println("Closed zip writer")
+	}()
 
 	for name, content := range document.rawFiles {
-		f, err := w.Create(name)
+		fmt.Println("Handling raw file", name)
+		var f io.Writer
+		f, err = w.Create(name)
 		if err != nil {
 			return err
 		}
+		fmt.Println("About to write raw file", name)
 		_, err = f.Write(content)
 		if err != nil {
 			return err
 		}
+		fmt.Println("Finished writing raw file", name)
 	}
 
 	for name, node := range document.xmlFiles {
-		f, err := w.Create(name)
+		fmt.Println("Handling xml file", name)
+		var f io.Writer
+		f, err = w.Create(name)
 		if err != nil {
 			return err
 		}
 
-		if _, err := f.Write(xmltree.Marshal(node)); err != nil {
+		fmt.Println("About to marshal xml file", name)
+		content := xmltree.Marshal(node)
+
+		fmt.Println("About to write xml file", name)
+		if _, err = f.Write(content); err != nil {
 			return err
 		}
+		fmt.Println("Finished writing xml file", name)
 	}
 
-	return nil
+	return err
 }
 
 func (document *Document) Headers() []*Header {
