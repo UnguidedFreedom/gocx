@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"time"
 
 	"aqwari.net/xml/xmltree"
 )
@@ -77,45 +76,35 @@ func (document *Document) SaveToFile(filename string) error {
 	}
 	defer func() {
 		err = output.Close()
-		fmt.Println("Closed file")
 	}()
 
 	w := zip.NewWriter(output)
 	defer func() {
 		err = w.Close()
-		fmt.Println("Closed zip writer")
 	}()
 
 	for name, content := range document.rawFiles {
-		begin := time.Now()
-		fmt.Println("Handling raw file", name)
 		var f io.Writer
 		f, err = w.Create(name)
 		if err != nil {
 			return err
 		}
-		fmt.Println("About to write raw file", name)
 		_, err = f.Write(content)
 		if err != nil {
 			return err
 		}
-		fmt.Println("Finished writing raw file", name, time.Now().Sub(begin).Round(time.Millisecond))
 	}
 
 	for name, node := range document.xmlFiles {
-		begin := time.Now()
-		fmt.Println("Handling xml file", name)
 		var f io.Writer
 		f, err = w.Create(name)
 		if err != nil {
 			return err
 		}
 
-		fmt.Println("About to encode xml file", name)
 		if err = xmltree.Encode(f, node); err != nil {
 			return err
 		}
-		fmt.Println("Finished writing xml file", name, time.Now().Sub(begin).Round(time.Millisecond))
 	}
 
 	return err
