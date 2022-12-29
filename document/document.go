@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"aqwari.net/xml/xmltree"
 )
@@ -20,11 +21,14 @@ type Document struct {
 }
 
 func OpenDocument(filename string) (*Document, error) {
+	var err error
 	r, err := zip.OpenReader(filename)
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
+	defer func() {
+		err = r.Close()
+	}()
 
 	document := &Document{
 		rawFiles: make(map[string][]byte, len(r.File)),
@@ -32,20 +36,25 @@ func OpenDocument(filename string) (*Document, error) {
 	}
 
 	for _, f := range r.File {
-		rc, err := f.Open()
+		var rc io.ReadCloser
+		rc, err = f.Open()
 		if err != nil {
 			return nil, err
 		}
 
-		data, err := io.ReadAll(rc)
+		var data []byte
+		data, err = io.ReadAll(rc)
 		if err != nil {
 			return nil, err
 		}
 
-		rc.Close()
+		if err = rc.Close(); err != nil {
+			return nil, err
+		}
 
 		if strings.HasSuffix(f.Name, ".xml") || strings.HasSuffix(f.Name, ".xml.rels") {
-			root, err := xmltree.Parse(data)
+			var root *xmltree.Element
+			root, err = xmltree.Parse(data)
 			if err != nil {
 				return nil, err
 			}
@@ -55,12 +64,14 @@ func OpenDocument(filename string) (*Document, error) {
 		}
 	}
 
-	return document, nil
+	// returning err so that it can be overridden in the deferred func
+	return document, err
 }
 
 func (document *Document) SaveToFile(filename string) error {
 	var err error
-	output, err := os.Create(filename)
+	var output *os.File
+	output, err = os.Create(filename)
 	if err != nil {
 		return err
 	}
@@ -76,6 +87,7 @@ func (document *Document) SaveToFile(filename string) error {
 	}()
 
 	for name, content := range document.rawFiles {
+		begin := time.Now()
 		fmt.Println("Handling raw file", name)
 		var f io.Writer
 		f, err = w.Create(name)
@@ -87,10 +99,11 @@ func (document *Document) SaveToFile(filename string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println("Finished writing raw file", name)
+		fmt.Println("Finished writing raw file", name, time.Now().Sub(begin).Round(time.Millisecond))
 	}
 
 	for name, node := range document.xmlFiles {
+		begin := time.Now()
 		fmt.Println("Handling xml file", name)
 		var f io.Writer
 		f, err = w.Create(name)
@@ -98,14 +111,11 @@ func (document *Document) SaveToFile(filename string) error {
 			return err
 		}
 
-		fmt.Println("About to marshal xml file", name)
-		content := xmltree.Marshal(node)
-
-		fmt.Println("About to write xml file", name)
-		if _, err = f.Write(content); err != nil {
+		fmt.Println("About to encode xml file", name)
+		if err = xmltree.Encode(f, node); err != nil {
 			return err
 		}
-		fmt.Println("Finished writing xml file", name)
+		fmt.Println("Finished writing xml file", name, time.Now().Sub(begin).Round(time.Millisecond))
 	}
 
 	return err
