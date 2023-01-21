@@ -10,6 +10,7 @@ import (
 
 type Run struct {
 	*xmltree.Element
+	document *Document
 }
 
 func (run *Run) Clear() {
@@ -46,11 +47,18 @@ func (run *Run) AddText(text string) {
 }
 
 func (run *Run) AddInlineImage(rId string, w, h int) {
+	fmt.Println(rId, w, h)
 	drawing, err := xmltree.Parse([]byte(drawingXml))
 	if err != nil {
 		panic(err)
 	}
 	drawing.Scope = *run.Scope.JoinScope(&drawing.Scope)
+
+	// update Id
+	run.document.maxId++
+	for _, node := range drawing.Search("", "docPr") {
+		node.SetAttr("", "id", fmt.Sprintf("%d", run.document.maxId))
+	}
 
 	// update reference
 	for _, node := range drawing.Search("", "blip") {
@@ -71,7 +79,6 @@ func (run *Run) AddInlineImage(rId string, w, h int) {
 		node.SetAttr("", "cx", wStr)
 		node.SetAttr("", "cy", hStr)
 	}
-
 	run.Children = append(run.Children, *drawing)
 }
 

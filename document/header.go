@@ -6,8 +6,8 @@ import (
 
 type Header struct {
 	*xmltree.Element
-	Name     string
-	Document *Document
+	name     string
+	document *Document
 }
 
 func (header *Header) Paragraphs() []*Paragraph {
@@ -16,12 +16,12 @@ func (header *Header) Paragraphs() []*Paragraph {
 	var paragraphs []*Paragraph
 
 	for _, paragraph := range header.Search(space, "p") {
-		paragraphs = append(paragraphs, &Paragraph{paragraph})
+		paragraphs = append(paragraphs, &Paragraph{Element: paragraph, document: header.document})
 	}
 
 	return paragraphs
 }
 
 func (header *Header) LinkImage(imageName string) (string, error) {
-	return header.Document.linkImage(imageName, header.Name)
+	return header.document.linkImage(imageName, header.name)
 }

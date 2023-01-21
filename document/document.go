@@ -9,6 +9,7 @@ import (
 	_ "image/png"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"aqwari.net/xml/xmltree"
@@ -17,6 +18,8 @@ import (
 type Document struct {
 	rawFiles map[string][]byte
 	xmlFiles map[string]*xmltree.Element
+
+	maxId int
 }
 
 func OpenDocument(filename string) (*Document, error) {
@@ -26,7 +29,10 @@ func OpenDocument(filename string) (*Document, error) {
 		return nil, err
 	}
 	defer func() {
-		err = r.Close()
+		closeErr := r.Close()
+		if err == nil {
+			err = closeErr
+		}
 	}()
 
 	document := &Document{
@@ -58,6 +64,24 @@ func OpenDocument(filename string) (*Document, error) {
 				return nil, err
 			}
 			document.xmlFiles[f.Name] = root
+
+			// dirty hack to fix xmltree's broken xml encoding
+			for _, element := range root.Flatten() {
+				for _, attr := range element.StartElement.Attr {
+					if strings.Contains(attr.Value, "&") {
+						element.SetAttr(attr.Name.Space, attr.Name.Local, strings.ReplaceAll(attr.Value, "&", "&amp;"))
+					}
+				}
+
+				if element.Name.Local == "docPr" {
+					id := element.Attr("", "id")
+					if id != "" {
+						if idInt, err := strconv.Atoi(id); err == nil && idInt > document.maxId {
+							document.maxId = idInt
+						}
+					}
+				}
+			}
 		} else {
 			document.rawFiles[f.Name] = data
 		}
@@ -116,8 +140,8 @@ func (document *Document) Headers() []*Header {
 		if strings.HasPrefix(filename, "word/header") {
 			header := &Header{
 				Element:  root,
-				Name:     strings.TrimPrefix(filename, "word/"),
-				Document: document,
+				name:     strings.TrimPrefix(filename, "word/"),
+				document: document,
 			}
 			headers = append(headers, header)
 		}
@@ -129,8 +153,8 @@ func (document *Document) Body() *Body {
 	body := document.xmlFiles["word/document.xml"]
 	return &Body{
 		Element:  body,
-		Name:     "document.xml",
-		Document: document,
+		name:     "document.xml",
+		document: document,
 	}
 }
 
