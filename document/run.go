@@ -14,11 +14,13 @@ type Run struct {
 }
 
 func (run *Run) Clear() {
-	for i, child := range run.Children {
-		if child.Name.Local != "rPr" {
-			run.Children = append(run.Children[:i], run.Children[i+1:]...)
+	newChildren := make([]xmltree.Element, 0, len(run.Children))
+	for _, child := range run.Children {
+		if child.Name.Local == "rPr" {
+			newChildren = append(newChildren, child)
 		}
 	}
+	run.Children = newChildren
 	run.Content = nil
 }
 
@@ -47,7 +49,6 @@ func (run *Run) AddText(text string) {
 }
 
 func (run *Run) AddInlineImage(rId string, w, h int) {
-	fmt.Println(rId, w, h)
 	drawing, err := xmltree.Parse([]byte(drawingXml))
 	if err != nil {
 		panic(err)
