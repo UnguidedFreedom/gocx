@@ -40,6 +40,8 @@ func OpenDocument(filename string) (*Document, error) {
 		xmlFiles: make(map[string]*xmltree.Element, len(r.File)),
 	}
 
+	replacer := strings.NewReplacer("<", "&lt;", ">", "&gt;", "&", "&amp;", "'", "&apos;", `"`, "&quot;")
+
 	for _, f := range r.File {
 		var rc io.ReadCloser
 		rc, err = f.Open()
@@ -68,9 +70,7 @@ func OpenDocument(filename string) (*Document, error) {
 			// dirty hack to fix xmltree's broken xml encoding
 			for _, element := range root.Flatten() {
 				for _, attr := range element.StartElement.Attr {
-					if strings.Contains(attr.Value, "&") {
-						element.SetAttr(attr.Name.Space, attr.Name.Local, strings.ReplaceAll(attr.Value, "&", "&amp;"))
-					}
+					element.SetAttr(attr.Name.Space, attr.Name.Local, replacer.Replace(attr.Value))
 				}
 
 				if element.Name.Local == "docPr" {
