@@ -228,13 +228,19 @@ func (document *Document) linkImage(imageName string, fileName string) (string, 
 	}
 	relRoot := document.xmlFiles[relPath]
 	target := fmt.Sprintf("media/%v", imageName)
+	maxRelId := 0
 	for _, rel := range relRoot.Children {
+		id := rel.Attr("", "Id")
 		if rel.Attr("", "Target") == target {
-			return rel.Attr("", "Id"), nil
+			return id, nil
+		}
+		relId, err := strconv.Atoi(strings.TrimPrefix(id, relIdPrefix))
+		if err == nil && relId > maxRelId {
+			maxRelId = relId
 		}
 	}
 	// if we reach this point the relationship didn't exist => create it
-	rId := fmt.Sprintf("rId%v", len(relRoot.Children)+1)
+	rId := fmt.Sprintf("%v%v", relIdPrefix, maxRelId+1)
 	rel := xmltree.Element{
 		StartElement: xml.StartElement{
 			Name: xml.Name{Local: "Relationship"},
