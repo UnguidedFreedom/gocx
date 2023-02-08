@@ -11,8 +11,10 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"aqwari.net/xml/xmltree"
+	"golang.org/x/sync/errgroup"
 )
 
 type Document struct {
@@ -99,37 +101,60 @@ func (document *Document) SaveToFile(filename string) error {
 		return err
 	}
 	defer func() {
-		err = output.Close()
+		if closeErr := output.Close(); err == nil && closeErr != nil {
+			err = closeErr
+		}
 	}()
 
 	w := zip.NewWriter(output)
 	defer func() {
-		err = w.Close()
+		if closeErr := w.Close(); err == nil && closeErr != nil {
+			err = closeErr
+		}
 	}()
 
+	g := new(errgroup.Group)
+	var mu sync.Mutex
+
 	for name, content := range document.rawFiles {
-		var f io.Writer
-		f, err = w.Create(name)
-		if err != nil {
-			return err
-		}
-		_, err = f.Write(content)
-		if err != nil {
-			return err
-		}
+		name, content := name, content
+		g.Go(func() error {
+			mu.Lock()
+			defer mu.Unlock()
+
+			f, err := w.Create(name)
+			if err != nil {
+				return err
+			}
+
+			if _, err = f.Write(content); err != nil {
+				return err
+			}
+			return nil
+		})
 	}
 
 	for name, node := range document.xmlFiles {
-		var f io.Writer
-		f, err = w.Create(name)
-		if err != nil {
-			return err
-		}
+		name, node := name, node
+		g.Go(func() error {
+			content := xmltree.Marshal(node)
 
-		if err = xmltree.Encode(f, node); err != nil {
-			return err
-		}
+			mu.Lock()
+			defer mu.Unlock()
+
+			f, err := w.Create(name)
+			if err != nil {
+				return err
+			}
+
+			if _, err = f.Write(content); err != nil {
+				return err
+			}
+			return nil
+		})
 	}
+
+	err = g.Wait()
 
 	return err
 }
