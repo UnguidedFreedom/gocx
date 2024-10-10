@@ -233,13 +233,13 @@ func (document *Document) AddImage(raw []byte) (string, error) {
 	return imgName, nil
 }
 
-func (document *Document) GetImageDimensions(imgName string) (int, int) {
+func (document *Document) GetImageDimensions(imgName string) (int, int, error) {
 	imgPath := fmt.Sprintf("word/media/%v", imgName)
 	img, _, err := image.DecodeConfig(bytes.NewReader(document.rawFiles[imgPath]))
 	if err != nil {
-		panic(err)
+		return 0, 0, err
 	}
-	return img.Width, img.Height
+	return img.Width, img.Height, nil
 }
 
 func (document *Document) linkImage(imageName string, fileName string) (string, error) {

@@ -48,10 +48,10 @@ func (run *Run) AddText(text string) {
 	run.Children = append(run.Children, newElement)
 }
 
-func (run *Run) AddInlineImage(rId string, w, h int) {
+func (run *Run) AddInlineImage(rId string, w, h int) error {
 	drawing, err := xmltree.Parse([]byte(drawingXml))
 	if err != nil {
-		panic(err)
+		return err
 	}
 	drawing.Scope = *run.Scope.JoinScope(&drawing.Scope)
 
@@ -81,6 +81,8 @@ func (run *Run) AddInlineImage(rId string, w, h int) {
 		node.SetAttr("", "cy", hStr)
 	}
 	run.Children = append(run.Children, *drawing)
+
+	return nil
 }
 
 func (run *Run) TrimPrefix(prefix string) {
